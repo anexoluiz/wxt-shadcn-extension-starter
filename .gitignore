@@ -1,0 +1,17 @@
+# Node / JS
+**/node_modules/
+**/dist/
+**/.cache/
+
+# WXT build artifacts
+**/.wxt/
+**/.output/
+
+# Environment files
+**/.env
+**/.env.*
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
