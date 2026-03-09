@@ -34,8 +34,11 @@ function Invoke-Checked {
     [Parameter(ValueFromRemainingArguments = $true)][string[]]$Args
   )
 
+  # debug: show exactly what will be invoked
+  Write-Host "[DEBUG] executing: $Command $($Args -join ' ')"
   & $Command @Args
   if ($LASTEXITCODE -ne 0) {
+    Write-Host "[DEBUG] exit code: $LASTEXITCODE"
     throw "Command failed (exit $LASTEXITCODE): $Command $($Args -join ' ')"
   }
 }
@@ -58,13 +61,19 @@ function Invoke-ScaffoldAttempt {
 
   Set-Location $Root
 
-  Invoke-Checked npx -y wxt@latest init $Name --template react --pm npm
+  # use npm exec instead of npx to prevent it from dropping into a script shell on Windows
+  # run the command directly rather than going through Invoke-Checked so PowerShell's
+  # parameter parser doesn't mangle the double-hyphen arguments.
+  & npm exec --yes wxt@latest -- init $Name '--template' react '--pm' npm
+  if ($LASTEXITCODE -ne 0) {
+      throw "wxt init failed with exit code $LASTEXITCODE"
+  }
 
   Set-Location $projectPath
 
-  Invoke-Checked npm install
-  Invoke-Checked npm install -D tailwindcss @tailwindcss/vite @types/node
-  Invoke-Checked npm install shadcn class-variance-authority clsx tailwind-merge lucide-react tw-animate-css date-fns react-day-picker
+  npm install; if ($LASTEXITCODE -ne 0) { throw "npm install failed" }
+  npm install -D tailwindcss @tailwindcss/vite @types/node; if ($LASTEXITCODE -ne 0) { throw "dev deps install failed" }
+  npm install shadcn class-variance-authority clsx tailwind-merge lucide-react tw-animate-css date-fns react-day-picker; if ($LASTEXITCODE -ne 0) { throw "deps install failed" }
 
   Write-Utf8File -Path (Join-Path $projectPath "tsconfig.json") -Content @'
 {
@@ -477,9 +486,12 @@ export function RandomPage() {
 }
 '@
 
-  Invoke-Checked npx -y shadcn@latest add button card calendar dialog select input label --yes --overwrite --cwd .
+  # similarly use npm exec for shadcn so the command runs non‑interactively
+  # quote options here as well to avoid PowerShell parsing issues
+  & npm exec --yes shadcn@latest -- add button card calendar dialog select input label '--yes' '--overwrite' '--cwd' .
+  if ($LASTEXITCODE -ne 0) { throw "shadcn add failed" }
 
-  Invoke-Checked npm run build
+  npm run build; if ($LASTEXITCODE -ne 0) { throw "npm run build failed" }
 }
 
 $attempt = 1
